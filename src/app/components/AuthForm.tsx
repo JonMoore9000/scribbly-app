@@ -81,15 +81,9 @@ export default function AuthForm() {
             />
             <button
               onClick={handleAuth}
-              className="w-full bg-indigo-600 text-white py-2 rounded mb-2"
+              className="w-full bg-indigo-600 text-white py-2 rounded"
             >
               Login with Password
-            </button>
-            <button
-              onClick={handleMagicLink}
-              className="w-full bg-green-600 text-white py-2 rounded"
-            >
-              Login with Email Link
             </button>
           </>
         )}
@@ -103,7 +97,7 @@ export default function AuthForm() {
         )}
         <button
           onClick={() => setIsLogin(!isLogin)}
-          className="text-sm text-blue-800 mt-2 hover:underline"
+          className="need-account-btn text-sm mt-2 hover:underline"
         >
           {isLogin ? 'Need an account? Sign up' : 'Already have an account? Log in'}
         </button>

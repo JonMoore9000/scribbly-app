@@ -424,7 +424,7 @@ export default function Home() {
     animate={{ y: 0, opacity: 1 }}
     exit={{ y: 60, opacity: 0 }}
     transition={{ duration: 0.25 }}
-      className="stats p-4 overflow-hidden"
+      className="stats p-2 overflow-hidden"
     >
           <p>Total notes: {notes.length}</p>
           <p>Total words: {stats.totalWords}</p>
