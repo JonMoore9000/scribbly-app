@@ -103,12 +103,26 @@ body {
   background: var(--secondary);
 }
 
-.swal2-toast {
+.swal2-toast, .swal2-popup {
   background: var(--backgroundFour) !important;
 }
 
-.swal2-toast h2 {
+.swal2-popup pre {
+  background: var(--backgroundTwo) !important;
+}
+
+.swal2-toast h2, .swal2-popup h3, .swal2-popup p, .swal2-popup li, .swal2-popup pre, .swal2-popup h2 {
   color: var(--text) !important;
+}
+
+.swal2-popup .swal2-title {
+  margin-bottom: 20px;
+  font-size: 24px;
+}
+
+.swal2-popup .swal2-html-container,
+.swal2-popup .swal2-title {
+  padding: 0;;
 }
 
 .create-note-save-btn {
@@ -281,6 +295,16 @@ time {
   z-index: 999;
 }
 
+.info-btn {
+  background: var(--primary);
+  color: #fff;
+  position: fixed;
+  right: 120px;
+  bottom: 10px;
+  z-index: 999;
+  border-radius: 50px;
+}
+
 .edit-emoji, .new-emoji {
   color: var(--primary);
   margin-bottom: 10px;
@@ -342,6 +366,18 @@ time {
   font-size: 14px;
 }
 
+.jon {
+  position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translate(-50%);
+    display: flex;
+}
+
+.kofi img {
+  margin: 20px auto auto;
+}
+
 @media(max-width: 641px) {
   nav {
     margin-bottom: 0;
@@ -389,5 +425,8 @@ time {
   }
   .notecard h2, .notecard p, h2 {
     font-size: 18px
+  }
+  body .jon {
+    display: none
   }
 }

@@ -11,7 +11,7 @@ import { auth } from "./../lib/firebase";
 import { useAuth } from '../context/AuthContext';
 import AuthForm from '../app/components/AuthForm';
 import { getNotesByUser } from '../lib/firestore';
-import { Download, Upload, Pen, Maximize2, NotebookPen, SquarePen, Link2, ChartColumn} from 'lucide-react';
+import { Download, Upload, Pen, Maximize2, NotebookPen, SquarePen, Link2, ChartColumn, Heart, Info, LogOut } from 'lucide-react';
 import { updateNote } from '../lib/firestore';
 import { deleteNote as deleteNoteFromDB } from '../lib/firestore';
 import { saveNote } from '../lib/firestore';
@@ -328,8 +328,51 @@ export default function Home() {
         onClick={() => auth.signOut()}
         className="logout-btn basic-btn"
       >
+        <LogOut size={20} className="mr-1" />
         Log out
       </button>
+      <button
+      onClick={() => {
+        Swal.fire({
+          title: 'Welcome to Scribbly!',
+          html: `
+            <div style="text-align: left; font-size: 16px;">
+              <h3 style="margin-bottom: 0.5rem;font-weight:bold;">🧠 What is Scribbly?</h3>
+              <p>A clean, modern note-taking app with Markdown support, emoji icons, tags, and delightful easter eggs.</p>
+      
+              <h3 style="margin-top: 1rem; margin-bottom: 0.5rem;font-weight:bold;">📥 Import Format</h3>
+              <p>To import notes, use a <code>.json</code> file with an array of notes. Each note should include:</p>
+              <pre style="background:#f4f4f4;padding:8px;border-radius:6px;overflow-x:auto">
+      [
+        {
+          "title": "Sample Note",
+          "content": "Your content here",
+          "emoji": "📝",
+          "tags": ["tag1", "tag2"],
+          "public": true,
+          "pinned": false
+        }
+      ]
+              </pre>
+      
+              <h3 style="margin-top: 1rem; margin-bottom: 0.5rem;font-weight:bold;">🚧 Features in Development</h3>
+              <ul style="padding-left: 20px;">
+                <li>🛎️ Desktop notifications</li>
+                <li>🖥️ Installable desktop app</li>
+                <li>🎨 More UI themes</li>
+              </ul>
+            </div>
+            <a class="kofi" href='https://ko-fi.com/Y8Y04MVLP' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi3.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+          `,
+          confirmButtonText: 'Got it!',
+          width: 600,
+          padding: '1.5em',
+          customClass: {
+            popup: 'info-popup',
+          }
+        });
+      }}
+      className="info-btn basic-btn"><Info size={20} className="mr-1" /> Info</button>
       <nav className="flex bg-white dark:bg-gray-800 m-auto rounded-3xl py-2 px-4 items-center w-full md:w-[400px] justify-between items-center relative">
       <h1 className="text-3xl font-bold text-center text-indigo-600 dark:text-indigo-400">Scribbly</h1>
       <div className="flex items-center gap-1">
@@ -486,6 +529,7 @@ export default function Home() {
         ))}
       </div>
       </div>
+      <p className="jon">Built with <Heart size={20} className="mx-1 translate-y-0.5" /> by <a className="underline mx-1" href="https://x.com/JontheNerd_" target='_blank'> Jon</a></p>
       <AnimatePresence>
       {selectedNote && (
         <motion.div initial={{ x: '100%' }}
