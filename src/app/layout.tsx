@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Nunito } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "../context/AuthContext"
+import { AuthProvider } from "../context/AuthContext";
+import { Analytics } from "@vercel/analytics/react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +36,7 @@ export default function RootLayout({
     <html lang="en">
   <body className={`${nunito.className} antialiased`}>
     <AuthProvider>{children}</AuthProvider>
+    <Analytics />
   </body>
 </html>
 
