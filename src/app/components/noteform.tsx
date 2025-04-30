@@ -11,6 +11,9 @@ import { ScribblyNote } from '../../lib/firestore';
 import { handleEasterEggs } from '../../lib/eastereggs';
 import MarkdownToolbar from './MarkdownToolbar';
 import Swal from 'sweetalert2';
+import { getFoldersByUser } from '../../lib/firestore';
+import { Folder } from '../../types/Folder';
+import { createFolder } from '../../lib/firestore';
 
 export default function NoteForm(
   {
@@ -29,6 +32,9 @@ export default function NoteForm(
   const [emoji, setEmoji] = useState('');
   const { user } = useAuth();
   const [isPublic, setIsPublic] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
 
   const emojiOptions = [
     '📝', '✏️', '🖊️', '🖋️', '📓', '📔', '📒', '📕', '📖', '📚',
@@ -66,7 +72,39 @@ export default function NoteForm(
     const transformed = handleEasterEggs(e.target.value);
     setContent(transformed);
   };
+
+  useEffect(() => {
+    if (user) {
+      getFoldersByUser(user.uid).then(setFolders);
+    }
+  }, [user]);
+
+  const handleCreateFolder = async () => {
+    if (!user) return;
   
+    const { value: folderName } = await Swal.fire({
+      title: 'Create New Folder',
+      input: 'text',
+      inputLabel: 'Folder name',
+      inputPlaceholder: 'Enter folder name',
+      showCancelButton: true,
+    });
+  
+    if (folderName) {
+      const newFolder = await createFolder(folderName.trim(), user.uid);
+      setFolders(prev => [...prev, newFolder]);
+      setSelectedFolderId(newFolder.id);
+  
+      Swal.fire({
+        icon: 'success',
+        title: `Folder "${folderName}" created!`,
+        toast: true,
+        position: 'top-end',
+        timer: 3000,
+        showConfirmButton: false,
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +143,7 @@ export default function NoteForm(
           .filter((tag) => tag !== ''),
           public: isPublic,
           pinned: false,
+          folderId: selectedFolderId || undefined,
       },
       user.uid
     );
@@ -203,14 +242,33 @@ const handleFormat = (syntax: 'bold' | 'italic' | 'code' | 'heading' | 'link') =
         value={tagsInput}
         onChange={(e) => setTagsInput(e.target.value)}
       />
-      <label className="public-label flex items-center gap-2 mb-2 text-sm text-black">
-        <input
-          type="checkbox"
-          checked={isPublic}
-          onChange={(e) => setIsPublic(e.target.checked)}
-        />
-        Make this note public
-      </label>
+      <div className="note-extra-info flex items-center mb-3">
+        <label className="public-label flex items-center gap-2 text-sm text-black">
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+          />
+          Make this note public
+        </label>
+        <select
+          value={selectedFolderId || ''}
+          onChange={(e) => setSelectedFolderId(e.target.value || null)}
+          className="rounded mx-2 text-sm underline"
+        >
+          <option value="">Uncategorized</option>
+          {folders.map(folder => (
+            <option key={folder.id} value={folder.id}>{folder.name}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={handleCreateFolder}
+          className=" underline text-sm"
+        >
+          New folder
+        </button>
+      </div>
       
       <button
         type="submit"

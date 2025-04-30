@@ -1,5 +1,6 @@
 // src/lib/firestore.ts
 import { db } from './firebase';
+import { Folder } from '../types/Folder';
 import {
   collection,
   addDoc,
@@ -23,6 +24,7 @@ export type NewNote = {
     createdAt?: string;
     public: boolean;
     pinned: boolean;
+    folderId?: string;
   };
 
 // For displaying a note (after saved)
@@ -39,6 +41,7 @@ export type ScribblyNote = NewNote & {
       userId,
       createdAt: Timestamp.now(),
       public: note.public,
+      folderId: note.folderId || null,
     });
   
     return {
@@ -64,6 +67,7 @@ export type ScribblyNote = NewNote & {
         public: data.public,
         pinned: data.pinned,
         createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        folderId: data.folderId || undefined,
       };
     });
   };
@@ -82,6 +86,7 @@ export type ScribblyNote = NewNote & {
       tags: note.tags,
       pinned: note.pinned,
       public: note.public,
+      folderId: note.folderId || null,
     });
   };
 
@@ -130,3 +135,42 @@ export type ScribblyNote = NewNote & {
     return await saveNote(welcomeNote, userId);
   };
   
+  // Create a folder
+export const createFolder = async (name: string, userId: string) => {
+  const docRef = await addDoc(collection(db, 'folders'), {
+    name,
+    createdAt: new Date().toISOString(),
+    userId,
+  });
+  return { id: docRef.id, name, createdAt: new Date().toISOString(), userId };
+};
+
+// Get folders for a user
+export const getFoldersByUser = async (userId: string) => {
+  const q = query(collection(db, 'folders'), where('userId', '==', userId));
+  const querySnapshot = await getDocs(q);
+  const folders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Folder[];
+
+  // Sort alphabetically
+  return folders.sort((a, b) => a.name.localeCompare(b.name));
+};
+
+// Delete a folder
+export const deleteFolder = async (folderId: string) => {
+  await deleteDoc(doc(db, 'folders', folderId));
+};
+
+// Delete folder and move its notes back to Uncategorized
+export const deleteFolderAndMoveNotes = async (folderId: string, userId: string) => {
+  const notesRef = collection(db, 'notes');
+  const q = query(notesRef, where('userId', '==', userId), where('folderId', '==', folderId));
+  const snapshot = await getDocs(q);
+
+  const updates = snapshot.docs.map((docSnap) => {
+    const noteRef = doc(db, 'notes', docSnap.id);
+    return updateDoc(noteRef, { folderId: null });
+  });
+
+  await Promise.all(updates); // Wait for all notes to be updated
+  await deleteDoc(doc(db, 'folders', folderId)); // Then delete the folder
+};

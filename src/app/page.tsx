@@ -11,7 +11,7 @@ import { auth } from "./../lib/firebase";
 import { useAuth } from '../context/AuthContext';
 import AuthForm from '../app/components/AuthForm';
 import { getNotesByUser } from '../lib/firestore';
-import { Download, Upload, Pen, Maximize2, NotebookPen, SquarePen, Link2, ChartColumn, Heart, Info, LogOut } from 'lucide-react';
+import { Download, Upload, Pen, Maximize2, NotebookPen, SquarePen, Link2, ChartColumn, Heart, Info, LogOut, FolderClosed, Trash, AlignJustify } from 'lucide-react';
 import { updateNote } from '../lib/firestore';
 import { deleteNote as deleteNoteFromDB } from '../lib/firestore';
 import { saveNote } from '../lib/firestore';
@@ -20,6 +20,9 @@ import DarkModeToggle from './components/DarkModeToggle';
 import { handleEasterEggs } from '../lib/eastereggs';
 import MarkdownToolbar from './components/MarkdownToolbar';
 import { getNoteStats } from '@/lib/stats';
+import { getFoldersByUser, deleteFolderAndMoveNotes, createFolder } from '../lib/firestore';
+import { Folder } from '@/types/Folder';
+import { getDocs, query, collection, where, updateDoc, doc } from 'firebase/firestore';
 
 // note type
 type Note = {
@@ -31,6 +34,7 @@ type Note = {
   tags: string[];
   public: boolean;
   pinned: boolean;
+  folderId?: string;
 };
 
 export default function Home() {
@@ -42,6 +46,9 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
 
   const stats = getNoteStats(notes);
@@ -52,6 +59,7 @@ export default function Home() {
       getNotesByUser(user.uid).then((fetchedNotes) => {
         setNotes(fetchedNotes);
       });
+      getFoldersByUser(user.uid).then(setFolders);
     }
   }, [user]);
   
@@ -106,6 +114,8 @@ export default function Home() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [editedPublic, setEditedPublic] = useState(false);
   const [showFormPanel, setShowFormPanel] = useState(false);
+  const [editedFolderId, setEditedFolderId] = useState<string | undefined>(undefined);
+
 
   useEffect(() => {
     if (selectedNote) {
@@ -115,7 +125,7 @@ export default function Home() {
       setIsEditing(false); // reset when new note is selected
       setEditedEmoji(selectedNote.emoji || '📝');
       setEditedPublic(selectedNote.public || false);
-      
+      setEditedFolderId(selectedNote.folderId);
     }
   }, [selectedNote]);
 
@@ -141,6 +151,7 @@ export default function Home() {
       tags: editedTags.split(',').map((tag) => tag.trim()).filter(Boolean),
       emoji: editedEmoji,
       public: editedPublic,
+      folderId: editedFolderId || undefined,
     };
   
     try {
@@ -162,6 +173,27 @@ export default function Home() {
         timer: 3000,
         timerProgressBar: true,
       });
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string, folderName: string) => {
+    const confirm = await Swal.fire({
+      title: `Delete folder "${folderName}"?`,
+      text: 'All notes inside will be moved to Uncategorized.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it',
+    });
+  
+    if (confirm.isConfirmed && user) {
+      await deleteFolderAndMoveNotes(folderId, user.uid);
+      const updatedFolders = await getFoldersByUser(user.uid);
+      setFolders(updatedFolders);
+      setSelectedFolderId(null); // reset filter if needed
+  
+      Swal.fire('Deleted!', 'Folder has been removed.', 'success');
     }
   };
   
@@ -216,6 +248,58 @@ export default function Home() {
     } else {
       document.documentElement.classList.remove('dark');
     }
+  };
+
+  const handleCreateNewFolder = async (fromEditor = false) => {
+    if (!user) return;
+  
+    const { value: folderName } = await Swal.fire({
+      title: 'Create New Folder',
+      input: 'text',
+      inputLabel: 'Folder name',
+      inputPlaceholder: 'Enter a folder name',
+      showCancelButton: true,
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Folder name cannot be empty!';
+        }
+      }
+    });
+  
+    if (folderName) {
+      const newFolder = await createFolder(folderName.trim(), user.uid);
+  
+      const updatedFolders = await getFoldersByUser(user.uid);
+      setFolders(updatedFolders);
+  
+      if (fromEditor) {
+        setEditedFolderId(newFolder.id);
+      } else {
+        setSelectedFolderId(newFolder.id);
+      }
+  
+      Swal.fire({
+        icon: 'success',
+        title: `Folder "${folderName}" created!`,
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+      });
+    }
+  };
+  
+
+  const handleFolderChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+  
+    if (value === "__new__") {
+      await handleCreateNewFolder();
+      return;
+    }
+  
+    setSelectedFolderId(value || null);
   };
   
   const handleImportNotes = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -291,9 +375,19 @@ export default function Home() {
     };
     reader.readAsText(file);
   };
-  const filteredNotes = selectedTag
-    ? notes.filter((note) => note.tags.includes(selectedTag))
-    : notes;
+  const filteredNotes = notes.filter((note) => {
+    const matchesFolder = selectedFolderId
+      ? selectedFolderId === 'uncategorized'
+        ? !note.folderId
+        : note.folderId === selectedFolderId
+      : true;
+      
+    const matchesTag = selectedTag
+      ? note.tags.includes(selectedTag)
+      : true;
+  
+    return matchesFolder && matchesTag;
+  });
 
     if (isLoading) {
       return (
@@ -323,14 +417,6 @@ export default function Home() {
 
   return (
     <main className={`min-h-screen p-4 bg-gray-200 dark:bg-gray-800 transition-all duration-500 ${isLoading ? 'opacity-0' : 'opacity-100'}`}>
-      
-      <button
-        onClick={() => auth.signOut()}
-        className="logout-btn basic-btn"
-      >
-        <LogOut size={20} className="mr-1" />
-        Log out
-      </button>
       <button
       onClick={() => {
         Swal.fire({
@@ -354,12 +440,16 @@ export default function Home() {
         }
       ]
               </pre>
-      
+              <h3 style="margin-top: 1rem; margin-bottom: 0.5rem;font-weight:bold;">🎉 Recent Updates</h3>
+              <ul style="padding-left: 20px;">
+                <li>New folder system (thanks David)</li>
+                <li>Updated mobile UI</li>
+              </ul>
               <h3 style="margin-top: 1rem; margin-bottom: 0.5rem;font-weight:bold;">🚧 Features in Development</h3>
               <ul style="padding-left: 20px;">
-                <li>🛎️ Desktop notifications</li>
-                <li>🖥️ Installable desktop app</li>
-                <li>🎨 More UI themes</li>
+                <li>Desktop notifications</li>
+                <li>Installable desktop app</li>
+                <li>More UI themes</li>
               </ul>
             </div>
             <a class="kofi" href='https://ko-fi.com/Y8Y04MVLP' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi3.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
@@ -373,8 +463,87 @@ export default function Home() {
         });
       }}
       className="info-btn basic-btn"><Info size={20} className="mr-1" /> Info</button>
-      <nav className="flex bg-white dark:bg-gray-800 m-auto rounded-3xl py-2 px-4 items-center w-full md:w-[400px] justify-between items-center relative">
+      {showMobileMenu && (
+        <motion.div
+        initial={{ opacity: 0, scale: .75 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{
+          duration: 0.2,
+          scale: { type: "spring", visualDuration: 0.4, bounce: 0.5 },
+      }}
+        className="mobile-nav fixed inset-0 z-40 bg-opacity-95 p-6 flex flex-col space-y-4 md:hidden">
+          <button
+            onClick={() => setShowMobileMenu(false)}
+            className="text-right text-white"
+          >
+            <X size={28} className='mobile-close-btn absolute right-6' />
+          </button>
+
+          {/* Mobile menu items — reuse your same logic */}
+          <DarkModeToggle />
+          <button onClick={() => setShowStats(!showStats)} className="basic-btn">
+            <ChartColumn size={20} className="mr-2" /> Stats
+          </button>
+          <button onClick={() => setShowFormPanel(true)} className="basic-btn">
+            <NotebookPen size={20} className="mr-2" /> New Note
+          </button>
+          
+          <button
+            onClick={() => {
+              const blob = new Blob([JSON.stringify(notes, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `scribbly-notes-${new Date().toISOString().split('T')[0]}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="basic-btn"
+          >
+            <Download size={20} className="mr-2" /> Export Notes
+          </button>
+          <label className="basic-btn cursor-pointer">
+            <Upload size={20} className="mr-2" /> Import Notes
+            <input type="file" accept=".json" onChange={handleImportNotes} className="hidden" />
+          </label>
+          <select
+            value={selectedFolderId || ''}
+            onChange={handleFolderChange}
+            className="p-2 rounded"
+          >
+            <option value="">📁 All Notes</option>
+            <option value="uncategorized">📂 Uncategorized</option>
+            {folders.map(folder => (
+              <option key={folder.id} value={folder.id}>📁 {folder.name}</option>
+            ))}
+            <option value="__new__">Create Folder</option>
+          </select>
+          <AnimatePresence>
+          {showStats && (
+            <motion.div
+            key="stats"
+            initial={{ transform: 'translate(-50%,-30px)', opacity: 0 }}
+            animate={{ transform: 'translate(-50%, 0)', opacity: 1 }}
+            exit={{ y: 60, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+              className="stats p-2 overflow-hidden"
+            >
+                  <p>Total notes: {notes.length}</p>
+                  <p>Total words: {stats.totalWords}</p>
+                  <p>Unique tags: {stats.uniqueTagsCount}</p>
+                </motion.div>
+              )}</AnimatePresence>
+        </motion.div>
+      )}
+      <nav className="flex bg-white dark:bg-gray-800 m-auto rounded-4xl py-2 px-4 items-center w-full justify-between items-center relative">
       <h1 className="text-3xl font-bold text-center text-indigo-600 dark:text-indigo-400">Scribbly</h1>
+      <button
+        onClick={() => setShowMobileMenu(true)}
+        className="mobile-menu-btn md:hidden absolute top-4 right-4 z-50 text-white"
+      >
+        <AlignJustify size={28} />
+      </button>
+      <div className="nav-content flex items-center gap-1">
       <div className="flex items-center gap-1">
         <DarkModeToggle />
         <div className="relative group inline-block">
@@ -399,6 +568,7 @@ export default function Home() {
                 showConfirmButton: false,
                 timer: 5000,
                 timerProgressBar: true,
+                
               });
             }}
             className="download p-2 rounded-3xl text-sm hover:bg-primary/10 transition"
@@ -463,8 +633,8 @@ export default function Home() {
   {showStats && (
     <motion.div
     key="stats"
-    initial={{ y: -30, opacity: 0 }}
-    animate={{ y: 0, opacity: 1 }}
+    initial={{ transform: 'translate(-50%,-30px)', opacity: 0 }}
+    animate={{ transform: 'translate(-50%, 0)', opacity: 1 }}
     exit={{ y: 60, opacity: 0 }}
     transition={{ duration: 0.25 }}
       className="stats p-2 overflow-hidden"
@@ -474,6 +644,36 @@ export default function Home() {
           <p>Unique tags: {stats.uniqueTagsCount}</p>
         </motion.div>
       )}</AnimatePresence>
+      <div className="ml-2">
+        <select
+          value={selectedFolderId || ''}
+          onChange={(e) => {
+            if (e.target.value === "__new__") {
+              handleCreateNewFolder(true); // pass true to know it's from editor
+              return;
+            }
+            setSelectedFolderId(e.target.value || null);
+          }}
+          className="folder-select p-2 rounded-lg"
+        >
+          <option value="">📁 All Notes</option>
+          <option value="uncategorized">📁 Uncategorized</option>
+          {folders.map((folder) => (
+            <option key={folder.id} value={folder.id}>
+              📁 {folder.name} 
+            </option>
+          ))}
+          <option value="__new__">Create Folder</option>
+        </select>
+      </div>
+      <button
+        onClick={() => auth.signOut()}
+        className="logout-btn"
+      >
+        <LogOut size={20} className="mx-3" />
+       
+      </button>
+      </div>
       </nav>
       <AnimatePresence>
       {showFormPanel && (
@@ -514,6 +714,19 @@ export default function Home() {
           >
             Clear filter
           </button>
+        </div>
+      )}
+      {selectedFolderId && selectedFolderId !== 'uncategorized' && (
+        <div className="mb-4 text-center flex align-items-center justify-center items-center gap-2">
+          <span className="text-md">
+            <strong>📁 {folders.find(f => f.id === selectedFolderId)?.name}</strong>
+          </span>
+        <button
+          onClick={() => handleDeleteFolder(selectedFolderId, folders.find(f => f.id === selectedFolderId)?.name || '')}
+          className=""
+        >
+          <Trash size={18} className="ml-3" />
+        </button>
         </div>
       )}
       {notes.length === 0 && (
@@ -586,14 +799,30 @@ export default function Home() {
                   value={editedTags}
                   onChange={(e) => setEditedTags(e.target.value)}
                 />
-                <label className="flex items-center gap-2 mb-2 text-sm">
+                <div className="note-extra-info flex items-center mb-3">
+                <label className="flex items-center gap-2 mr-2 text-sm">
                 <input
                   type="checkbox"
                   checked={editedPublic}
                   onChange={(e) => setEditedPublic(e.target.checked)}
                 />
                 Make this note public
-              </label>
+                </label>
+                <select
+                  value={editedFolderId || ''}
+                  onChange={(e) => setEditedFolderId(e.target.value || undefined)}
+                  className="underline text-sm"
+                >
+                  <option value="">Uncategorized</option>
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
+              
+                </div>
+                
                 <div className="flex justify-end gap-2 mt-4">
                   <button onClick={() => setIsEditing(false)} className="text-sm text-gray-500 hover:underline">
                     Cancel

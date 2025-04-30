@@ -11,6 +11,7 @@
   --primary: #726cf8;
   --secondary: #e975a8;
   --text: #181818;
+  --softText: #777;
   --gradient: linear-gradient(315deg, #726cf8 0%, #e975a8 74%);
   --shadow: 0 5px 15px #bbb;
   --shadowTwo: 0 5px 8px #ccc;
@@ -24,6 +25,7 @@
   --darkGrey: #999;
   --softGrey: #666;
   --text: #e5e7eb;
+  --softText: #eee;
   --backgroundThree: #4b5563;
   --shadow: 0 5px 15px #111;
   --shadowTwo: 0 5px 8px #080808;
@@ -60,6 +62,7 @@ main {
 nav {
   background: var(--backgroundTwo);
   margin-bottom: 75px;
+  max-width: 1000px;
 }
 
 body {
@@ -96,15 +99,18 @@ body {
 }
 
 .dark-mode-toggle {
-  background: var(--primary);
+  background: none;
+  color: var(--softText);
+  
 }
 
-.dark-mode-toggle:hover {
-  background: var(--secondary);
+.dark-moge-toggle svg {
+  color: var(--softText);
 }
 
 .swal2-toast, .swal2-popup {
   background: var(--backgroundFour) !important;
+  padding: 12px !important;
 }
 
 .swal2-popup pre {
@@ -113,16 +119,6 @@ body {
 
 .swal2-toast h2, .swal2-popup h3, .swal2-popup p, .swal2-popup li, .swal2-popup pre, .swal2-popup h2 {
   color: var(--text) !important;
-}
-
-.swal2-popup .swal2-title {
-  margin-bottom: 20px;
-  font-size: 24px;
-}
-
-.swal2-popup .swal2-html-container,
-.swal2-popup .swal2-title {
-  padding: 0;;
 }
 
 .create-note-save-btn {
@@ -154,14 +150,6 @@ input:focus-visible, textarea:focus-visible {
 
 .public-label:hover {
   cursor: pointer;
-}
-form button {
-  color: var(--primary);
-}
-
-form button:hover {
-  color: #fff;
-  background: var(--gradient);
 }
 
 .create-note input, .create-note textarea,
@@ -242,7 +230,7 @@ time {
 }
 
 .panel textarea {
-  height: 475px
+  height: 425px
 }
 
 .upload, .download, .stats-btn {
@@ -287,22 +275,25 @@ time {
 }
 
 .logout-btn {
-  background: var(--primary);
-  color: #fff;
-  position: fixed;
-  right: 10px;
-  bottom: 10px;
-  z-index: 999;
+  color: var(--softText);
+}
+
+.logout-btn:hover, .dark-mode-toggle:hover {
+  color: var(--primary);
 }
 
 .info-btn {
   background: var(--primary);
   color: #fff;
   position: fixed;
-  right: 120px;
+  right: 10px;
   bottom: 10px;
   z-index: 999;
   border-radius: 50px;
+}
+
+.info-popup {
+  padding: 0 !important;
 }
 
 .edit-emoji, .new-emoji {
@@ -352,13 +343,14 @@ time {
 
 .stats {
   position: absolute;
-  left: 0;
+  left: 50%;
   top: 60px;
-  width: 100%;
+  width: 375px;
   display: flex;
   justify-content: space-evenly;
   background: var(--primary);
   border-radius: 50px;
+  transform: translateX(-50%);
 }
 
 .stats p {
@@ -378,7 +370,52 @@ time {
   margin: 20px auto auto;
 }
 
-@media(max-width: 641px) {
+select {
+  background: var(--backgroundTwo);
+  color: var(--text);
+}
+
+select:hover, option:hover {
+  cursor: pointer;
+}
+
+.folder-select {
+  border: 2px solid var(--backgroundThree);
+  color: var(--text);
+  font-size: 14px;
+  width: 200px;
+  border-radius: 175px;
+}
+
+.swal2-input {
+  background: var(--backgroundThree);
+  color: var(--text);
+  border: 2px solid var(--background);
+}
+
+.mobile-nav {
+  background: var(--background);
+}
+
+.mobile-close-btn, .mobile-menu-btn {
+  color: var(--primary);
+}
+
+@media(max-width: 767px) {
+  nav > div {
+    display: none
+  }
+  nav {
+    position: relative;
+  }
+  .mobile-menu-btn {
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+}
+
+@media(max-width: 767px) {
   nav {
     margin-bottom: 0;
     border-radius: 8px;
@@ -388,12 +425,25 @@ time {
     backdrop-filter: blur(5px);
     z-index: 10;
     box-shadow: var(--shadowTwo);
+    padding: 15px;
+  }
+  .swal2-popup .swal2-title, .swal2-popup h2 {
+    font-size: 18px;
+    width: auto;
   }
   nav h1 {
     font-size: 22px;
   }
+  .mobile-nav .basic-btn,
+  .mobile-nav select {
+    padding: 10px 15px;
+    border-radius: 8px;
+  }
   .stats {
     padding: 10px;
+    top: auto;
+    bottom: 75px;
+    width: 90%;
   }
   .stats p {
     font-size: 12px;
@@ -421,7 +471,7 @@ time {
     border-radius: 0;
   }
   .panel textarea,.edit-preview {
-    height: 275px;
+    height: 225px;
   }
   .notecard h2, .notecard p, h2 {
     font-size: 18px
